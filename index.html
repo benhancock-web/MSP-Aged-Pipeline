@@ -369,6 +369,38 @@
       border-color: #0C3C60;
     }
 
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+    .toggle-label { font-size: 12px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; transition: color 0.2s; }
+    .toggle-label.active { color: #0C3C60; }
+    .toggle-switch {
+      width: 44px;
+      height: 24px;
+      background: #ccc;
+      border-radius: 12px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s;
+    }
+    .toggle-switch.active { background: #0C3C60; }
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle-switch.active::after { transform: translateX(20px); }
+
     /* Age band sections */
     .age-band-section {
       margin-bottom: 20px;
@@ -642,6 +674,11 @@
         <option value="">All Progressors</option>
       </select>
     </div>
+    <div class="toggle-container">
+      <span class="toggle-label active" id="label-agent">By Agent</span>
+      <div class="toggle-switch" id="toggle-switch" onclick="toggleView()"></div>
+      <span class="toggle-label" id="label-progressor">By Progressor</span>
+    </div>
   </div>
 
   <!-- Age band sections -->
@@ -653,6 +690,17 @@
       <h3>Distribution by Age Band</h3>
     </div>
     <canvas id="distribution-chart" style="max-height: 250px;"></canvas>
+  </div>
+
+  <!-- Age Distribution by Entity -->
+  <div class="chart-container" style="margin-top: 20px;">
+    <div class="section-header">
+      <h3 id="entity-chart-title">Age Distribution by Agent</h3>
+      <div class="section-subtitle" id="entity-chart-subtitle">Properties per agent, coloured by age band</div>
+    </div>
+    <div style="height: 400px; position: relative;">
+      <canvas id="entity-chart"></canvas>
+    </div>
   </div>
 </main>
 
@@ -690,6 +738,7 @@
   let boardsCache = [];
   let boardItemsCache = {};
   let allDiscoveredColumns = [];
+  let byAgent = true;  // true = agent view, false = progressor view
   const charts = {};
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -825,7 +874,7 @@
 
       if (colTitle === 'owner' || colTitle === 'person') {
         if (text) owner = text;
-      } else if (colTitle === 'mos sent to msp') {
+      } else if (colTitle.includes('mos') && !mosSentDate) {
         mosSentDate = text;
       }
     }
@@ -907,7 +956,7 @@
   function isLiveGroup(groupTitle) {
     if (!groupTitle) return false;
     const lower = groupTitle.toLowerCase();
-    return lower.includes('live') && !lower.includes('live gross');
+    return lower.includes('pipeline');
   }
 
   function processAgedPipelineData(items, selectedProgressor) {
@@ -1122,6 +1171,81 @@
     });
   }
 
+  function renderEntityChart(properties) {
+    const canvas = document.getElementById('entity-chart');
+    if (!canvas) return;
+
+    // Update titles
+    const viewLabel = byAgent ? 'Agent' : 'Progressor';
+    document.getElementById('entity-chart-title').textContent = `Age Distribution by ${viewLabel}`;
+    document.getElementById('entity-chart-subtitle').textContent = `Properties per ${viewLabel.toLowerCase()}, coloured by age band`;
+
+    // Group properties by entity
+    const entityMap = {};
+    for (const prop of properties) {
+      const key = byAgent ? prop.boardName : (prop.owner || '(Unknown)');
+      if (!entityMap[key]) entityMap[key] = [];
+      entityMap[key].push(prop);
+    }
+
+    // Sort by total property count descending
+    const entities = Object.entries(entityMap).sort((a, b) => b[1].length - a[1].length);
+    const labels = entities.map(([name]) => name);
+
+    // Build datasets — one per age band
+    const datasets = AGE_BANDS.map(band => ({
+      label: band.label,
+      data: entities.map(([, props]) => props.filter(p => p.days >= band.min && p.days <= band.max).length),
+      backgroundColor: band.colour,
+      borderRadius: 4,
+      borderSkipped: false
+    }));
+
+    if (charts['entity-chart']) {
+      charts['entity-chart'].destroy();
+    }
+
+    // Adjust chart height based on number of entities
+    const chartHeight = Math.max(300, entities.length * 32 + 60);
+    canvas.parentElement.style.height = chartHeight + 'px';
+
+    charts['entity-chart'] = new Chart(canvas, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { font: { size: 11 }, padding: 12, boxWidth: 14 }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                return ctx.dataset.label + ': ' + ctx.parsed.x + ' properties';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { font: { size: 11 }, stepSize: 1 },
+            grid: { color: '#f0f2f5' }
+          },
+          y: {
+            stacked: true,
+            ticks: { font: { size: 11 } },
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  }
+
   function populateProgressorSelect(items) {
     const progressors = new Set();
     for (const { item, colMap, boardName, boardId } of items) {
@@ -1145,6 +1269,25 @@
     select.value = current;
   }
 
+  function toggleView() {
+    byAgent = !byAgent;
+    const toggle = document.getElementById('toggle-switch');
+    const labelAgent = document.getElementById('label-agent');
+    const labelProgressor = document.getElementById('label-progressor');
+
+    if (byAgent) {
+      toggle.classList.remove('active');
+      labelAgent.classList.add('active');
+      labelProgressor.classList.remove('active');
+    } else {
+      toggle.classList.add('active');
+      labelAgent.classList.remove('active');
+      labelProgressor.classList.add('active');
+    }
+
+    applyFilters();
+  }
+
   // ────────────────────────────────────────────────────────────────────────────
   // FILTER APPLICATION
   // ────────────────────────────────────────────────────────────────────────────
@@ -1156,6 +1299,7 @@
     renderSummaryWidgets(properties, noDatProperties, totalLive);
     renderAgeBandSections(byBand, properties);
     renderDistributionChart(properties);
+    renderEntityChart(properties);
   }
 
   // ────────────────────────────────────────────────────────────────────────────
