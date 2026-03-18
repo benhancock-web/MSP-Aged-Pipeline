@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MSP — Aged Pipeline Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Nunito Sans', 'Avenir Next', Avenir, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #0C3C60;
+      color: #fff;
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-logo-wrap {
+      background: #fff;
+      border-radius: 8px;
+      padding: 5px 12px;
+      display: flex;
+      align-items: center;
+    }
+
+    .header-logo {
+      height: 28px;
+      width: auto;
+      display: block;
+    }
+
+    .header-divider {
+      width: 1px;
+      height: 28px;
+      background: rgba(255,255,255,0.25);
+    }
+
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      opacity: 0.9;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    #refresh-info {
+      font-size: 13px;
+      opacity: 0.85;
+      text-align: right;
+    }
+
+    #refresh-btn {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.5);
+      color: #fff;
+      padding: 7px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-top: 6px;
+      transition: background 0.2s;
+    }
+
+    #refresh-btn:hover {
+      background: rgba(255,255,255,0.35);
+    }
+
+    #refresh-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    main {
+      padding: 28px 32px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    #status-bar {
+      background: #fff;
+      border-radius: 8px;
+      padding: 12px 20px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #555;
+      border-left: 4px solid #0C3C60;
+      display: none;
+    }
+
+    #error-bar {
+      background: #fff0f0;
+      border-radius: 8px;
+      padding: 12px 20px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #c0392b;
+      border-left: 4px solid #e74c3c;
+      display: none;
+    }
+
+    /* Board filter panel */
+    #filter-panel {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      margin-bottom: 20px;
+      overflow: hidden;
+      display: none;
+    }
+
+    #filter-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.2s;
+    }
+
+    #filter-header:hover {
+      background: #f7f9fc;
+    }
+
+    #filter-panel.open #filter-header {
+      border-bottom-color: #e8ecf0;
+    }
+
+    #filter-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #444;
+    }
+
+    #filter-toggle-arrow {
+      font-size: 11px;
+      color: #888;
+      transition: transform 0.2s;
+      display: inline-block;
+    }
+
+    #filter-panel.open #filter-toggle-arrow {
+      transform: rotate(180deg);
+    }
+
+    #filter-badge {
+      background: #0C3C60;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+
+    #filter-badge.filtered {
+      background: #fdab3d;
+    }
+
+    #filter-header-right {
+      display: flex;
+      gap: 8px;
+    }
+
+    .filter-action-btn {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: 1px solid #d0d8e4;
+      background: #fff;
+      color: #555;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .filter-action-btn:hover {
+      background: #f0f4fa;
+      border-color: #0C3C60;
+      color: #0C3C60;
+    }
+
+    #filter-body {
+      padding: 14px 18px 16px;
+      display: none;
+    }
+
+    #filter-panel.open #filter-body {
+      display: block;
+    }
+
+    #filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 6px 16px;
+    }
+
+    .filter-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 6px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+
+    .filter-item:hover {
+      background: #f0f4fa;
+    }
+
+    .filter-item input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: #0C3C60;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .filter-item label {
+      font-size: 13px;
+      color: #333;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Summary widgets */
+    .summary-widgets {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .summary-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px 18px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      border-left: 4px solid #0C3C60;
+    }
+
+    .summary-card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #222;
+      margin-bottom: 8px;
+    }
+
+    .summary-card-count {
+      font-size: 28px;
+      font-weight: 800;
+      color: #0C3C60;
+    }
+
+    .summary-card.aged-90 {
+      border-left-color: #00c875;
+    }
+
+    .summary-card.aged-90 .summary-card-count {
+      color: #00c875;
+    }
+
+    .summary-card.aged-120 {
+      border-left-color: #fdab3d;
+    }
+
+    .summary-card.aged-120 .summary-card-count {
+      color: #fdab3d;
+    }
+
+    .summary-card.aged-180 {
+      border-left-color: #ff642e;
+    }
+
+    .summary-card.aged-180 .summary-card-count {
+      color: #ff642e;
+    }
+
+    .summary-card.aged-180plus {
+      border-left-color: #e2445c;
+    }
+
+    .summary-card.aged-180plus .summary-card-count {
+      color: #e2445c;
+    }
+
+    .summary-card.no-date {
+      border-left-color: #999;
+    }
+
+    .summary-card.no-date .summary-card-count {
+      color: #999;
+    }
+
+    /* Progressor filter */
+    .filter-controls {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      display: flex;
+      gap: 20px;
+      align-items: flex-end;
+    }
+
+    .filter-control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .filter-control-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .filter-control-group select {
+      font-family: inherit;
+      font-size: 13px;
+      color: #333;
+      background: #fff;
+      border: 1px solid #d0d8e4;
+      border-radius: 6px;
+      padding: 8px 32px 8px 10px;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      transition: border-color 0.15s;
+    }
+
+    .filter-control-group select:focus {
+      outline: none;
+      border-color: #0C3C60;
+    }
+
+    /* Age band sections */
+    .age-band-section {
+      margin-bottom: 20px;
+    }
+
+    .age-band-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 2px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      user-select: none;
+    }
+
+    .age-band-header .band-count {
+      background: rgba(255,255,255,0.3);
+      border-radius: 12px;
+      padding: 2px 10px;
+      font-size: 12px;
+    }
+
+    .age-band-body {
+      display: none;
+      margin-bottom: 16px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .age-band-body.open {
+      display: block;
+    }
+
+    /* Age band table */
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .items-table thead th {
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #888;
+      padding: 7px 12px;
+      background: #fff;
+      border-bottom: 1px solid #eef0f3;
+      white-space: nowrap;
+    }
+
+    .items-table tbody tr:hover {
+      background: #f7f9fc;
+    }
+
+    .items-table tbody td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f0f2f5;
+      color: #333;
+      vertical-align: middle;
+    }
+
+    .items-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .items-table a {
+      color: #0C3C60;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .items-table a:hover {
+      text-decoration: underline;
+    }
+
+    /* Chart containers */
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin-bottom: 20px;
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .section-header h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #222;
+    }
+
+    /* Login overlay */
+    #login-overlay {
+      display: flex;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    #login-overlay.hidden {
+      display: none;
+    }
+
+    #login-modal {
+      background: #fff;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+      width: 90%;
+      max-width: 360px;
+      text-align: center;
+    }
+
+    #login-modal h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0C3C60;
+      margin-bottom: 6px;
+    }
+
+    .login-subtitle {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 22px;
+    }
+
+    #login-password {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d0d8e4;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 14px;
+      font-family: inherit;
+    }
+
+    #login-password:focus {
+      outline: none;
+      border-color: #0C3C60;
+      box-shadow: 0 0 0 3px rgba(12,60,96,0.1);
+    }
+
+    .login-btn {
+      width: 100%;
+      background: #0C3C60;
+      border: none;
+      color: #fff;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-bottom: 12px;
+    }
+
+    .login-btn:hover {
+      background: #0a2f4d;
+    }
+
+    .login-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    #login-error {
+      font-size: 12px;
+      color: #c0392b;
+      margin-top: 8px;
+      min-height: 18px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #999;
+    }
+
+    .empty-state p {
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <div class="header-logo-wrap">
+      <svg class="header-logo" viewBox="0 0 24 24" fill="none" stroke="#0C3C60" stroke-width="2">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M12 14l2 2-2 2"/>
+      </svg>
+    </div>
+    <div class="header-divider"></div>
+    <h1>Aged Pipeline Report</h1>
+  </div>
+  <div class="header-right">
+    <div id="refresh-info">
+      <div style="margin-bottom: 2px;">Last refreshed</div>
+      <div id="last-refresh" style="font-size: 12px; font-weight: 600;">—</div>
+    </div>
+    <button id="refresh-btn" onclick="loadDashboard()">Refresh</button>
+  </div>
+</header>
+
+<main>
+  <div id="status-bar"></div>
+  <div id="error-bar"></div>
+
+  <!-- Board filter panel -->
+  <div id="filter-panel">
+    <div id="filter-header" onclick="toggleFilter()">
+      <div id="filter-header-left">
+        <span id="filter-toggle-arrow">▼</span>
+        <span>Available Boards</span>
+        <span id="filter-badge">0</span>
+      </div>
+      <div id="filter-header-right">
+        <button class="filter-action-btn" onclick="selectAllBoards(event)">Select All</button>
+        <button class="filter-action-btn" onclick="deselectAllBoards(event)">Deselect All</button>
+      </div>
+    </div>
+    <div id="filter-body">
+      <div id="filter-grid"></div>
+    </div>
+  </div>
+
+  <!-- Summary widgets -->
+  <div class="summary-widgets" id="summary-widgets"></div>
+
+  <!-- Progressor filter -->
+  <div class="filter-controls">
+    <div class="filter-control-group">
+      <label for="progressor-select">Sales Progressor</label>
+      <select id="progressor-select" onchange="applyFilters()">
+        <option value="">All Progressors</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Age band sections -->
+  <div id="age-band-container"></div>
+
+  <!-- Distribution chart -->
+  <div class="chart-container">
+    <div class="section-header">
+      <h3>Distribution by Age Band</h3>
+    </div>
+    <canvas id="distribution-chart" style="max-height: 250px;"></canvas>
+  </div>
+</main>
+
+<!-- Login overlay -->
+<div id="login-overlay">
+  <div id="login-modal">
+    <h2>Momentum SP</h2>
+    <p class="login-subtitle">Enter your dashboard password to continue</p>
+    <input type="password" id="login-password" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()" autofocus />
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Sign in</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<script>
+  // ────────────────────────────────────────────────────────────────────────────
+  // CONFIG
+  // ────────────────────────────────────────────────────────────────────────────
+  const CF_BASE_URL = 'https://europe-west2-momentum-sp-invoicing.cloudfunctions.net/momentum-invoicing';
+  const COOKIE_NAME = 'msp_api_key';
+  const BOARD_FILTER_KEY = 'msp-aged-pipeline-board-filter';
+  const REFRESH_INTERVAL_MS = 3 * 60 * 60 * 1000;
+
+  const AGE_BANDS = [
+    { label: '0–90 days', min: 0, max: 90, colour: '#00c875' },
+    { label: '91–120 days', min: 91, max: 120, colour: '#fdab3d' },
+    { label: '121–180 days', min: 121, max: 180, colour: '#ff642e' },
+    { label: '180+ days', min: 181, max: Infinity, colour: '#e2445c' }
+  ];
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // STATE
+  // ────────────────────────────────────────────────────────────────────────────
+  let apiKey = '';
+  let boardsCache = [];
+  let boardItemsCache = {};
+  let allDiscoveredColumns = [];
+  const charts = {};
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // COOKIE HELPERS (cross-subdomain SSO)
+  // ────────────────────────────────────────────────────────────────────────────
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+
+  function setCookie(name, value, days) {
+    let expires = '';
+    if (days) { const d = new Date(); d.setTime(d.getTime() + days * 86400000); expires = '; expires=' + d.toUTCString(); }
+    const domain = location.hostname.endsWith('.flowintel.co.uk') ? '; domain=.flowintel.co.uk' : '';
+    const secure = location.protocol === 'https:' ? '; Secure; SameSite=Lax' : '';
+    document.cookie = name + '=' + encodeURIComponent(value) + expires + domain + '; path=/' + secure;
+  }
+
+  function deleteCookie(name) {
+    const domain = location.hostname.endsWith('.flowintel.co.uk') ? '; domain=.flowintel.co.uk' : '';
+    document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT' + domain + '; path=/';
+  }
+
+  function showLogin() { document.getElementById('login-overlay').classList.remove('hidden'); }
+  function hideLogin() { document.getElementById('login-overlay').classList.add('hidden'); }
+
+  async function doLogin() {
+    const pw = document.getElementById('login-password').value.trim();
+    const errEl = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+    if (!pw) { errEl.textContent = 'Please enter a password'; return; }
+    errEl.textContent = ''; btn.disabled = true;
+    try {
+      const res = await fetch(CF_BASE_URL + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+      });
+      const json = await res.json();
+      if (json.success && json.api_key) {
+        apiKey = json.api_key;
+        setCookie(COOKIE_NAME, apiKey, 30);
+        hideLogin();
+        loadDashboard();
+      } else {
+        errEl.textContent = json.error || 'Invalid password';
+      }
+    } catch (err) {
+      errEl.textContent = 'Login failed: ' + err.message;
+    } finally { btn.disabled = false; }
+  }
+
+  function checkAuth() {
+    const saved = getCookie(COOKIE_NAME);
+    if (saved) { apiKey = saved; return true; }
+    return false;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // API PROXY (via Cloud Function)
+  // ────────────────────────────────────────────────────────────────────────────
+  async function cfFetch(endpoint, options = {}) {
+    const hdrs = { 'X-API-Key': apiKey, ...(options.headers || {}) };
+    if (options.body && !hdrs['Content-Type']) hdrs['Content-Type'] = 'application/json';
+    const res = await fetch(CF_BASE_URL + endpoint, {
+      ...options,
+      headers: hdrs
+    });
+    if (res.status === 401) {
+      deleteCookie(COOKIE_NAME);
+      apiKey = '';
+      showLogin();
+      throw new Error('Session expired — please log in again');
+    }
+    return res.json();
+  }
+
+  async function fetchAllSPBoards() {
+    const data = await cfFetch('/boards');
+    allDiscoveredColumns = (data.allDiscoveredColumns || []);
+    return data.boards || [];
+  }
+
+  async function fetchBoardItems(boardId) {
+    const data = await cfFetch('/items?board_id=' + boardId);
+    return data.items || [];
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // DATA FETCHING & CACHING
+  // ────────────────────────────────────────────────────────────────────────────
+  async function fetchAndCacheAllItems(boards) {
+    boardItemsCache = {};
+    const BATCH = 5;
+    const statusBar = document.getElementById('status-bar');
+    let loaded = 0;
+
+    for (let i = 0; i < boards.length; i += BATCH) {
+      const slice = boards.slice(i, i + BATCH);
+      const results = await Promise.all(
+        slice.map(b => fetchBoardItems(b.id).then(items => ({
+          boardId: b.id, boardName: b.name, items, colMap: b.colMap
+        })))
+      );
+      for (const { boardId, boardName, items, colMap } of results) {
+        boardItemsCache[boardId] = items.map(item => ({
+          item, colMap, boardName, boardId
+        }));
+      }
+      loaded += slice.length;
+      statusBar.textContent = `Loaded ${loaded} / ${boards.length} boards\u2026`;
+    }
+  }
+
+  function getCheckedItems() {
+    const allItems = [];
+    for (const board of boardsCache) {
+      const cb = document.getElementById(`cb-${board.id}`);
+      if (cb && cb.checked) allItems.push(...(boardItemsCache[board.id] || []));
+    }
+    return allItems;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // DATA EXTRACTION
+  // ────────────────────────────────────────────────────────────────────────────
+  function extractItemData(item, colMap, boardName, boardId) {
+    let owner = '', mosSentDate = '';
+
+    for (const cv of (item.column_values || [])) {
+      const colTitle = (colMap[cv.id] || '').toLowerCase();
+      const text = (cv.text || '').trim();
+
+      if (colTitle === 'owner' || colTitle === 'person') {
+        if (text) owner = text;
+      } else if (colTitle === 'mos sent to msp') {
+        mosSentDate = text;
+      }
+    }
+
+    const spStatus = item.group?.title || '';
+    const itemName = item.name || '';
+    const itemId = item.id || '';
+    return { owner, mosSentDate, spStatus, boardName, boardId, itemName, itemId };
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // FILTER PANEL
+  // ────────────────────────────────────────────────────────────────────────────
+  function toggleFilter() {
+    const panel = document.getElementById('filter-panel');
+    panel.classList.toggle('open');
+  }
+
+  function loadSavedFilter() { try { return JSON.parse(localStorage.getItem(BOARD_FILTER_KEY) || '{}'); } catch { return {}; } }
+  function saveFilter() {
+    const s = {};
+    boardsCache.forEach(b => { const cb = document.getElementById(`cb-${b.id}`); if (cb) s[b.id] = cb.checked; });
+    localStorage.setItem(BOARD_FILTER_KEY, JSON.stringify(s));
+  }
+
+  function buildFilterPanel(boards) {
+    const grid = document.getElementById('filter-grid');
+    grid.innerHTML = '';
+    const saved = loadSavedFilter();
+    [...boards].sort((a,b) => a.name.localeCompare(b.name)).forEach(board => {
+      const item = document.createElement('div'); item.className = 'filter-item';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = `cb-${board.id}`;
+      cb.checked = board.id in saved ? saved[board.id] : true;
+      cb.addEventListener('change', () => { saveFilter(); applyFilters(); });
+      const label = document.createElement('label'); label.htmlFor = `cb-${board.id}`; label.textContent = board.name; label.title = board.name;
+      item.appendChild(cb); item.appendChild(label);
+      item.addEventListener('click', e => { if (e.target !== cb) cb.click(); });
+      grid.appendChild(item);
+    });
+    document.getElementById('filter-panel').style.display = 'block';
+    updateFilterBadge();
+  }
+
+  function updateFilterBadge() {
+    const total = boardsCache.length;
+    const checked = boardsCache.filter(b => { const cb = document.getElementById(`cb-${b.id}`); return cb && cb.checked; }).length;
+    const badge = document.getElementById('filter-badge');
+    badge.textContent = checked === total ? `${total}` : `${checked} / ${total}`;
+    badge.classList.toggle('filtered', checked !== total);
+  }
+
+  function selectAllBoards(e) {
+    e.stopPropagation();
+    boardsCache.forEach(b => { const cb = document.getElementById(`cb-${b.id}`); if (cb) cb.checked = true; });
+    saveFilter(); updateFilterBadge(); applyFilters();
+  }
+
+  function deselectAllBoards(e) {
+    e.stopPropagation();
+    boardsCache.forEach(b => { const cb = document.getElementById(`cb-${b.id}`); if (cb) cb.checked = false; });
+    saveFilter(); updateFilterBadge(); applyFilters();
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // AGED PIPELINE CALCULATIONS
+  // ────────────────────────────────────────────────────────────────────────────
+  function calculateDaysInPipeline(mosSentDate) {
+    if (!mosSentDate) return -1; // flag as no date
+    const [year, month, day] = mosSentDate.split('-');
+    if (!year || !month || !day) return -1;
+    const sentDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    sentDate.setHours(0, 0, 0, 0);
+    const diffMs = today.getTime() - sentDate.getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }
+
+  function isLiveGroup(groupTitle) {
+    if (!groupTitle) return false;
+    const lower = groupTitle.toLowerCase();
+    return lower.includes('live') && !lower.includes('live gross');
+  }
+
+  function processAgedPipelineData(items, selectedProgressor) {
+    const properties = [];
+    const noDatProperties = [];
+    let totalLive = 0;
+
+    for (const { item, colMap, boardName, boardId } of items) {
+      const data = extractItemData(item, colMap, boardName, boardId);
+      const { owner, mosSentDate, spStatus } = data;
+
+      // Only include if in "Live" group
+      if (!isLiveGroup(spStatus)) continue;
+      totalLive++;
+
+      // Apply progressor filter
+      if (selectedProgressor && owner !== selectedProgressor) continue;
+
+      const days = calculateDaysInPipeline(mosSentDate);
+
+      if (days === -1) {
+        noDatProperties.push({
+          ...data,
+          days: 0
+        });
+      } else {
+        properties.push({
+          ...data,
+          days
+        });
+      }
+    }
+
+    // Group by age band
+    const byBand = {};
+    AGE_BANDS.forEach(band => {
+      byBand[band.label] = properties.filter(p => p.days >= band.min && p.days <= band.max);
+    });
+
+    return { properties, noDatProperties, byBand, totalLive };
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // RENDER FUNCTIONS
+  // ────────────────────────────────────────────────────────────────────────────
+  function renderSummaryWidgets(properties, noDatProperties, totalLive) {
+    const container = document.getElementById('summary-widgets');
+    container.innerHTML = '';
+
+    const aged90 = properties.filter(p => p.days > 90).length;
+    const aged120 = properties.filter(p => p.days > 120).length;
+    const aged180 = properties.filter(p => p.days > 180).length;
+
+    const cards = [
+      {
+        title: 'Total Live Properties',
+        count: totalLive,
+        className: 'summary-card'
+      },
+      {
+        title: 'Aged > 90 Days',
+        count: aged90,
+        className: 'summary-card aged-90'
+      },
+      {
+        title: 'Aged > 120 Days',
+        count: aged120,
+        className: 'summary-card aged-120'
+      },
+      {
+        title: 'Aged > 180 Days',
+        count: aged180,
+        className: 'summary-card aged-180plus'
+      },
+      {
+        title: 'No MOS Date',
+        count: noDatProperties.length,
+        className: 'summary-card no-date'
+      }
+    ];
+
+    cards.forEach(card => {
+      container.innerHTML += `
+        <div class="${card.className}">
+          <div class="summary-card-title">${card.title}</div>
+          <div class="summary-card-count">${card.count}</div>
+        </div>
+      `;
+    });
+  }
+
+  function renderAgeBandSections(byBand, allProperties) {
+    const container = document.getElementById('age-band-container');
+    container.innerHTML = '';
+
+    AGE_BANDS.forEach((band, idx) => {
+      const props = byBand[band.label];
+      props.sort((a, b) => b.days - a.days); // descending
+
+      const section = document.createElement('div');
+      section.className = 'age-band-section';
+
+      const header = document.createElement('div');
+      header.className = 'age-band-header';
+      header.style.backgroundColor = band.colour;
+      header.onclick = () => body.classList.toggle('open');
+      header.innerHTML = `
+        <span>${band.label}</span>
+        <span class="band-count">${props.length}</span>
+      `;
+
+      const body = document.createElement('div');
+      body.className = 'age-band-body open';
+
+      if (props.length === 0) {
+        body.innerHTML = '<div class="empty-state"><p>No properties in this age band</p></div>';
+      } else {
+        let tableHtml = `
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Property Address</th>
+                <th>Estate Agent</th>
+                <th>Sales Progressor</th>
+                <th>MOS Sent Date</th>
+                <th>Days in Pipeline</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        props.forEach(prop => {
+          const mosDate = prop.mosSentDate ? new Date(prop.mosSentDate + 'T00:00:00').toLocaleDateString('en-GB') : '—';
+          const mondayLink = `https://marks-team879428.monday.com/boards/${prop.boardId}/pulses/${prop.itemId}`;
+          tableHtml += `
+            <tr>
+              <td><a href="${mondayLink}" target="_blank">${prop.itemName}</a></td>
+              <td>${prop.boardName}</td>
+              <td>${prop.owner || '—'}</td>
+              <td>${mosDate}</td>
+              <td><strong>${prop.days}</strong></td>
+            </tr>
+          `;
+        });
+
+        tableHtml += `
+            </tbody>
+          </table>
+        `;
+        body.innerHTML = tableHtml;
+      }
+
+      section.appendChild(header);
+      section.appendChild(body);
+      container.appendChild(section);
+    });
+  }
+
+  function renderDistributionChart(properties) {
+    const canvas = document.getElementById('distribution-chart');
+    if (!canvas) return;
+
+    const labels = AGE_BANDS.map(b => b.label);
+    const values = labels.map(label => {
+      const band = AGE_BANDS.find(b => b.label === label);
+      return properties.filter(p => p.days >= band.min && p.days <= band.max).length;
+    });
+    const colours = AGE_BANDS.map(b => b.colour);
+
+    if (charts['distribution-chart']) {
+      charts['distribution-chart'].destroy();
+    }
+
+    charts['distribution-chart'] = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Properties',
+          data: values,
+          backgroundColor: colours,
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                return ctx.parsed.x + ' properties';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            ticks: { font: { size: 11 } },
+            grid: { color: '#f0f2f5' }
+          },
+          y: {
+            ticks: { font: { size: 11 } },
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  }
+
+  function populateProgressorSelect(items) {
+    const progressors = new Set();
+    for (const { item, colMap, boardName, boardId } of items) {
+      const data = extractItemData(item, colMap, boardName, boardId);
+      if (isLiveGroup(data.spStatus) && data.owner) {
+        progressors.add(data.owner);
+      }
+    }
+
+    const select = document.getElementById('progressor-select');
+    const current = select.value;
+    select.innerHTML = '<option value="">All Progressors</option>';
+
+    Array.from(progressors).sort().forEach(prog => {
+      const opt = document.createElement('option');
+      opt.value = prog;
+      opt.textContent = prog;
+      select.appendChild(opt);
+    });
+
+    select.value = current;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // FILTER APPLICATION
+  // ────────────────────────────────────────────────────────────────────────────
+  function applyFilters() {
+    const selectedProgressor = document.getElementById('progressor-select').value || '';
+    const items = getCheckedItems();
+    const { properties, noDatProperties, byBand, totalLive } = processAgedPipelineData(items, selectedProgressor);
+
+    renderSummaryWidgets(properties, noDatProperties, totalLive);
+    renderAgeBandSections(byBand, properties);
+    renderDistributionChart(properties);
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // MAIN LOAD FUNCTION
+  // ────────────────────────────────────────────────────────────────────────────
+  async function loadDashboard() {
+    const statusBar = document.getElementById('status-bar');
+    const errorBar = document.getElementById('error-bar');
+    const refreshBtn = document.getElementById('refresh-btn');
+
+    statusBar.style.display = 'block';
+    statusBar.textContent = 'Loading boards…';
+    errorBar.style.display = 'none';
+    refreshBtn.disabled = true;
+
+    try {
+      boardsCache = await fetchAllSPBoards();
+      buildFilterPanel(boardsCache);
+
+      statusBar.textContent = 'Fetching items…';
+      await fetchAndCacheAllItems(boardsCache);
+
+      const allItems = getCheckedItems();
+      populateProgressorSelect(allItems);
+
+      statusBar.textContent = 'Rendering…';
+      applyFilters();
+
+      statusBar.style.display = 'none';
+      document.getElementById('last-refresh').textContent = new Date().toLocaleTimeString('en-GB');
+    } catch (err) {
+      errorBar.style.display = 'block';
+      errorBar.textContent = 'Error: ' + err.message;
+      console.error(err);
+    } finally {
+      refreshBtn.disabled = false;
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // STARTUP
+  // ────────────────────────────────────────────────────────────────────────────
+  if (checkAuth()) {
+    hideLogin();
+    loadDashboard();
+  } else {
+    showLogin();
+  }
+
+  setInterval(loadDashboard, REFRESH_INTERVAL_MS);
+</script>
+
+</body>
+</html>
